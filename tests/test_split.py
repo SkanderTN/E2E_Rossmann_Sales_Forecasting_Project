@@ -73,9 +73,11 @@ def test_split_data_by_dates():
     df = pd.DataFrame({'Date': dates, 'Store': 1, 'Sales': range(100)})
 
     train_start = pd.Timestamp('2023-01-01')
-    train_end = pd.Timestamp('2023-01-50')
-    val_start = pd.Timestamp('2023-01-51')
-    val_end = pd.Timestamp('2023-01-70')
+    # Use timedelta arithmetic to create valid timestamps instead of
+    # non-standard strings like '2023-01-50' which newer pandas rejects.
+    train_end = train_start + pd.Timedelta(days=49)  # 50 days total
+    val_start = train_end + pd.Timedelta(days=1)
+    val_end = val_start + pd.Timedelta(days=19)  # 20-day validation window
 
     train_df, val_df = split_data_by_dates(df, train_start, train_end, val_start, val_end)
 

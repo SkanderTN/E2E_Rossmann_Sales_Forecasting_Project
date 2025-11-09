@@ -192,7 +192,9 @@ if generate_forecast:
                     height=500
                 )
 
-                st.plotly_chart(fig_history, use_container_width=True)
+                # Use the new `width='stretch'` option to replace deprecated
+                # `use_container_width=True`.
+                st.plotly_chart(fig_history, width='stretch')
 
                 # Save plot
                 try:
@@ -233,11 +235,41 @@ if generate_forecast:
                 ))
 
                 # Add vertical line at forecast start
-                fig_forecast.add_vline(
-                    x=start_date,
-                    line_dash="dot",
-                    line_color="gray",
-                    annotation_text="Forecast Start"
+                # Ensure start_date is a datetime-like object (Streamlit date_input may
+                # return a `datetime.date`). Convert with pandas.to_datetime which
+                # handles both `date` and `Timestamp` inputs.
+                try:
+                    # Convert to pandas Timestamp then format as ISO date string.
+                    # Passing a plain date string avoids mixed Timestamp vs
+                    # python-datetime arithmetic inside Plotly internals.
+                    vline_x = pd.to_datetime(start_date).strftime('%Y-%m-%d')
+                except Exception:
+                    vline_x = (pd.to_datetime(last_date) + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+
+                # Add a vertical line using a shape and separate annotation.
+                # Using shapes avoids Plotly internals that try to average
+                # mixed-type axis values which can cause TypeError.
+                fig_forecast.add_shape(
+                    type='line',
+                    x0=vline_x,
+                    x1=vline_x,
+                    y0=0,
+                    y1=1,
+                    xref='x',
+                    yref='paper',
+                    line=dict(color='gray', dash='dot')
+                )
+
+                # Add annotation at the top of the plot
+                fig_forecast.add_annotation(
+                    x=vline_x,
+                    y=1.02,
+                    xref='x',
+                    yref='paper',
+                    showarrow=False,
+                    text='Forecast Start',
+                    align='center',
+                    bgcolor='rgba(255,255,255,0.7)'
                 )
 
                 fig_forecast.update_layout(
@@ -249,7 +281,7 @@ if generate_forecast:
                     legend=dict(x=0.01, y=0.99)
                 )
 
-                st.plotly_chart(fig_forecast, use_container_width=True)
+                st.plotly_chart(fig_forecast, width='stretch')
 
                 # Save plot
                 try:
@@ -287,7 +319,9 @@ if generate_forecast:
                 display_df = forecast_df.copy()
                 display_df['date'] = display_df['date'].dt.strftime('%Y-%m-%d')
                 display_df = display_df.rename(columns={'date': 'Date', 'yhat': 'Predicted Sales'})
-                st.dataframe(display_df, use_container_width=True)
+                # Set width to 'stretch' for compatibility; dataframes accept
+                # an explicit width in pixels, so we use a reasonable default.
+                st.dataframe(display_df, width=800)
 
             # Download button
             csv = forecast_df.to_csv(index=False)
@@ -306,7 +340,7 @@ else:
     st.subheader(f"Sample Historical Data - Store {store_id}")
     sample_data = store_data.tail(10)[['Date', 'Sales', 'Promo', 'SchoolHoliday']].copy()
     sample_data['Date'] = sample_data['Date'].dt.strftime('%Y-%m-%d')
-    st.dataframe(sample_data, use_container_width=True)
+    st.dataframe(sample_data, width=700)
 
 # Footer
 st.markdown("---")

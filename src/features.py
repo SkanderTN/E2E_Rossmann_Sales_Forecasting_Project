@@ -60,6 +60,10 @@ def add_holiday_features(df: pd.DataFrame) -> pd.DataFrame:
     de_holidays = holidays.Germany()
 
     # Check if date is a German holiday OR has StateHoliday != '0'
+    # Ensure StateHoliday column exists; if missing, assume '0' (no holiday)
+    if 'StateHoliday' not in df.columns:
+        df['StateHoliday'] = '0'
+
     df['is_holiday'] = df.apply(
         lambda row: 1 if (row['Date'] in de_holidays or row['StateHoliday'] != '0') else 0,
         axis=1
@@ -220,14 +224,20 @@ def add_store_dow_mean_past(df: pd.DataFrame, target_col: str = 'Sales') -> pd.D
     """
     df = df.copy()
 
-    # Group by Store and dow, compute expanding mean of shifted values
-    df['store_dow_mean_past'] = (
+    # Group by Store and dow, compute expanding mean of shifted values.
+    # Use `apply` to run the expanding mean per-group, then align back to the
+    # original DataFrame index by dropping the group keys from the resulting
+    # MultiIndex. This avoids calling `.reset_index(level=[0,1])` on a Series
+    # that doesn't have those levels (which caused the IndexError).
+    store_dow_mean = (
         df.groupby(['Store', 'dow'])[target_col]
-        .shift(1)
-        .expanding()
-        .mean()
-        .reset_index(level=[0, 1], drop=True)
+        .apply(lambda s: s.shift(1).expanding().mean())
     )
+
+    # When using groupby.apply the result is indexed by a MultiIndex
+    # (Store, dow, original_index). Reset the first two levels to align to
+    # the original row index, then assign back to the DataFrame.
+    df['store_dow_mean_past'] = store_dow_mean.reset_index(level=[0, 1], drop=True)
 
     return df
 
