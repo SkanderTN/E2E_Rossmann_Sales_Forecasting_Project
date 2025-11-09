@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rossmann_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+      - ./data/processed:/app/data/processed:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - rossmann_net
+
+  dashboard:
+    image: python:3.9-slim
+    container_name: rossmann_dashboard
+    working_dir: /app
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./src:/app/src
+      - ./data/processed:/app/data/processed:ro
+      - ./reports:/app/reports
+      - ./requirements.txt:/app/requirements.txt
+    command: >
+      bash -c "pip install --no-cache-dir -r requirements.txt &&
+               streamlit run src/app/dashboard.py --server.address 0.0.0.0"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+    networks:
+      - rossmann_net
+
+networks:
+  rossmann_net:
+    driver: bridge
