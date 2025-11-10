@@ -363,8 +363,4 @@ E2E_Rossmann_Sales_Forecasting_Project/
 
 ## License
 
-MIT
-
-## Contact
-
-skander.hakouna@enicar.ucar.tn
+MIT.
